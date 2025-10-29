@@ -64,6 +64,7 @@ vel = v_min+(v_max-v_min).*rand(num_g,dim); % 粒子初始速度
 
 k=0;      % 迭代计数器
 fitcount=0; % 适应度评估计数器
+g_res = zeros(1, iter*num_g);  % 初始化收敛历史记录
 
 % 计算初始适应度
 result = zeros(num_g,1);
