@@ -56,8 +56,8 @@ sigmin = 0.1;  % 高斯变异参数最小值
 sig = 1;       % 当前高斯变异参数
 
 % ================= 粒子初始化 =================
-VRmin = range(1)*ones(num_g,dim);   % 每个粒子的下界
-VRmax = range(2)*ones(num_g,dim);   % 每个粒子的上界
+VRmin = lb*ones(num_g,dim);   % 每个粒子的下界
+VRmax = ub*ones(num_g,dim);   % 每个粒子的上界
 interval = VRmax-VRmin;                   % 搜索空间区间
 v_max = 0.5 * interval;                   % 速度最大值
 v_min = -v_max;                           % 速度最小值
@@ -67,14 +67,18 @@ vel = v_min+(v_max-v_min).*rand(num_g,dim); % 粒子初始速度
 k=0;      % 迭代计数器
 fitcount=0; % 适应度评估计数器
 
-result = benchmark_func(pos,func_num);    % 计算初始适应度
+% 计算初始适应度
+result = zeros(num_g,1);
+for i = 1:num_g
+    result(i) = y(pos(i,:));
+end
 fitcount = fitcount + num_g;              % 累加评估次数
 pbest_pos = pos;                          % 初始化个体最优位置
 pbest_val = result';                      % 初始化个体最优值
 
 [gbest_val,g_index] = min(result);        % 初始化群体最优值和位置
 gbest_pos = pos(g_index,:); 
-g_res(1:fitcount) = gbest_val;      ---+      % 记录进化过程群体最优值
+g_res(1:fitcount) = gbest_val;      % 记录进化过程群体最优值
 
 obj_func_slope=zeros(num_g,1);            % 每个粒子停滞计数
 fri_best=(1:num_g1)'*ones(1,dim);   % CL子群学习伙伴索引
@@ -157,7 +161,7 @@ while k <= iter && fitcount <= y
                       (((vel_g2(i,:)<v_max(i,:))&(vel_g2(i,:)>v_min(i,:))).*vel_g2(i,:));
         pos_g2(i,:) = pos(i,:) + vel_g2(i,:);
         % 非均匀变异
-        pos_g2(i,:) = Non_uniform_mutation(pos_g2(i,:),pm,k,iter,range);     
+        pos_g2(i,:) = Non_uniform_mutation(pos_g2(i,:),pm,k,iter,[lb,ub]);
     end
 
     % -------- 合并所有子群 --------
@@ -173,7 +177,9 @@ while k <= iter && fitcount <= y
         end
     end
     if ~isempty(index)
-      result(index) = benchmark_func(pos(index,:),func_num); 
+      for ii = 1:length(index)
+          result(index(ii)) = y(pos(index(ii),:));
+      end
       index = [];
     end
 
@@ -214,10 +220,10 @@ while k <= iter && fitcount <= y
     if flag >= gap1
         pt = gbest_pos;
         d1 = unidrnd(dim);    randdata = 2 * rand(1,1)-1;
-        pt(d1) = pt(d1)+sign(randdata)*(range(2)-range(1))*normrnd(0,sig^2);  
-        pt(find(pt(:)>range(2))) = range(2) * rand;                           
-        pt(find(pt(:)<range(1))) = range(1) * rand;
-        cv = benchmark_func(pt,func_num);                                     
+        pt(d1) = pt(d1)+sign(randdata)*(ub-lb)*normrnd(0,sig^2);  
+        pt(find(pt(:)>ub)) = ub * rand;                           
+        pt(find(pt(:)<lb)) = lb * rand;
+        cv = y(pt);                                     
         fitcount = fitcount+1;
         g_res(fitcount) = cv;
         if cv < gbest_val
@@ -225,7 +231,7 @@ while k <= iter && fitcount <= y
             gbest_val = cv;
             flag=0;       
         end           
-    end         
+    end
     sig = sigmax - (sigmax-sigmin)*(fitcount/y);      
 
     % -------- CL子群学习对象动态更新 --------
@@ -284,14 +290,14 @@ while k <= iter && fitcount <= y
 end
 
 % ================= 输出结果 =================
-check_vel1 = check_vel1./(range(2)-range(1));
-check_vel2 = check_vel2./(range(2)-range(1));
+check_vel1 = check_vel1./(ub-lb);
+check_vel2 = check_vel2./(ub-lb);
 position = gbest_pos;
 value = gbest_val;
 iteration = k;
 y = fitcount;
-Error = value-f_bias(func_num);              % 误差
-gbestfit = g_res - f_bias(func_num);         % 进化过程中最优值与真实值差异
+Error = value;              % 误差（最优适应度值）
+gbestfit = g_res;         % 进化过程中最优值
 end
 
 % ================= 非均匀变异操作 =================
