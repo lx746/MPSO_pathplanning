@@ -1,19 +1,17 @@
-function [position,value,iteration,y,Error,gbestfit]= HCLDMS_PSO(N,iter,lb,ub,dim,y,G) 
-% function [gBestScore,gBest,cg_curve]=MPSO(N,iter,lb,ub,dim,y,G)
+function [gBestScore,gBest,cg_curve]= HCLDMS_PSO(N,iter,lb,ub,dim,fobj,G) 
+% HCLDMS_PSO: Hybrid Comprehensive Learning and Dynamic Multi-Swarm PSO
 % 输入参数：
-% num_particle：粒子数
-% range：变量范围（下界、上界）
-% dimension：问题维度
-% max_iteration：最大迭代次数
-% max_FES：最大适应度评估次数
-% func_num：优化函数编号
+% N：粒子数
+% iter：最大迭代次数
+% lb：下界
+% ub：上界
+% dim：问题维度
+% fobj：适应度函数
+% G：地图矩阵
 % 输出参数：
-% position：最优解位置
-% value：最优适应度值
-% iteration：实际迭代次数
-% max_FES：实际适应度评估次数
-% Error：最优解与真实值误差
-% gbestfit：进化过程中群体最优值与真实值的差异
+% gBestScore：最优适应度值
+% gBest：最优解位置
+% cg_curve：收敛曲线
 
 rand('state',sum(100*clock));  % 初始化随机种子
 % load fbias_data;               % 加载基准函数偏置数据
@@ -70,7 +68,7 @@ fitcount=0; % 适应度评估计数器
 % 计算初始适应度
 result = zeros(num_g,1);
 for i = 1:num_g
-    result(i) = y(pos(i,:));
+    result(i) = fobj(pos(i,:));
 end
 fitcount = fitcount + num_g;              % 累加评估次数
 pbest_pos = pos;                          % 初始化个体最优位置
@@ -113,7 +111,7 @@ end
 count = 0;   index = []; m = 1; 
 
 % =============== 进化主循环 ===============
-while k <= iter && fitcount <= y
+while k < iter
     % -------- 多样性指标记录 --------
     if m <= iter                                            
         ava_pos = mean(pos);                                          
@@ -178,7 +176,7 @@ while k <= iter && fitcount <= y
     end
     if ~isempty(index)
       for ii = 1:length(index)
-          result(index(ii)) = y(pos(index(ii),:));
+          result(index(ii)) = fobj(pos(index(ii),:));
       end
       index = [];
     end
@@ -187,7 +185,7 @@ while k <= iter && fitcount <= y
     for i=1:num_g   
        if (sum(pos(i,:)>VRmax(i,:))+sum(pos(i,:)<VRmin(i,:))==0)
           fitcount=fitcount+1;
-          if fitcount>=y,  break;   end
+          if fitcount>=iter*num_g,  break;   end
           if  result(i) < pbest_val(i)
             pbest_pos(i,:) = pos(i,:);   
             pbest_val(i) = result(i);
@@ -223,7 +221,7 @@ while k <= iter && fitcount <= y
         pt(d1) = pt(d1)+sign(randdata)*(ub-lb)*normrnd(0,sig^2);  
         pt(find(pt(:)>ub)) = ub * rand;                           
         pt(find(pt(:)<lb)) = lb * rand;
-        cv = y(pt);                                     
+        cv = fobj(pt);                                     
         fitcount = fitcount+1;
         g_res(fitcount) = cv;
         if cv < gbest_val
@@ -232,7 +230,7 @@ while k <= iter && fitcount <= y
             flag=0;       
         end           
     end
-    sig = sigmax - (sigmax-sigmin)*(fitcount/y);      
+    sig = sigmax - (sigmax-sigmin)*(fitcount/(iter*num_g));      
 
     % -------- CL子群学习对象动态更新 --------
     for i=1:num_g1             
@@ -282,22 +280,18 @@ while k <= iter && fitcount <= y
      check_vel1=[check_vel1 sum(check_vel(1:num_g1,end))/num_g1];
      check_vel2=[check_vel2 sum(check_vel(num_g1+1:end,end))/num_g2];
 
-     if fitcount>=y,  break;   end   
-     if (k==iter) && (fitcount<y)
+     if fitcount>=iter*num_g,  break;   end   
+     if (k==iter)
         k=k-1;
         count = count + 1;
      end
 end
 
 % ================= 输出结果 =================
-check_vel1 = check_vel1./(ub-lb);
-check_vel2 = check_vel2./(ub-lb);
-position = gbest_pos;
-value = gbest_val;
-iteration = k;
-y = fitcount;
-Error = value;              % 误差（最优适应度值）
-gbestfit = g_res;         % 进化过程中最优值
+cg_curve = zeros(1,iter);
+cg_curve(1:length(g_res)) = g_res;
+gBestScore = gbest_val;
+gBest = gbest_pos;
 end
 
 % ================= 非均匀变异操作 =================
